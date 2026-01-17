@@ -1,59 +1,266 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Stripe Payment Integration for Laravel
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A Laravel-based backend application for handling course enrollment payments using Stripe Checkout. This project demonstrates a complete payment flow with webhook handling, enrollment tracking, and payment status management.
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- 🎓 **Course Management**: Create and manage courses with pricing
+- 💳 **Stripe Checkout Integration**: Seamless payment processing using Stripe Checkout Sessions
+- 📝 **Enrollment Tracking**: Track user enrollments and payment status
+- 🔔 **Webhook Handling**: Automatic payment status updates via Stripe webhooks
+- 🔒 **Race Condition Prevention**: Cache-based locking to prevent duplicate webhook processing
+- ✅ **Payment Status Verification**: API endpoints to check payment completion status
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Technology Stack
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **Framework**: Laravel 12.x
+- **PHP**: 8.2+
+- **Payment Gateway**: Stripe (stripe/stripe-php ^19.1)
+- **Database**: SQLite (default, can be configured for MySQL/PostgreSQL)
 
-## Learning Laravel
+## Requirements
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- PHP >= 8.2
+- Composer
+- Stripe Account (API keys)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+**Optional** (only if you need frontend asset compilation):
+- Node.js & NPM
 
-## Laravel Sponsors
+## Installation
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/stripe-payment.git
+   cd stripe-payment
+   ```
 
-### Premium Partners
+2. **Install PHP dependencies**
+   ```bash
+   composer install
+   ```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+3. **Configure environment**
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
+
+4. **Configure Stripe credentials**
+   
+   Add your Stripe API keys to `.env`:
+   ```env
+   STRIPE_KEY=your_stripe_publishable_key
+   STRIPE_SECRET=your_stripe_secret_key
+   FRONTEND_URL=http://localhost:3000
+   ```
+
+5. **Run migrations**
+   ```bash
+   php artisan migrate
+   ```
+
+**Optional** - If you need frontend assets (CSS/JS):
+```bash
+npm install
+npm run build
+```
+
+## Quick Start
+
+You can use the provided Composer scripts for quick setup:
+
+```bash
+# Complete setup (install dependencies, generate key, migrate, build assets)
+composer setup
+
+# Development server (runs server, queue, logs, and vite concurrently)
+# Note: This requires npm to be installed
+composer dev
+```
+
+**Note**: The `composer setup` and `composer dev` scripts include npm commands. For API-only usage, you can skip npm entirely and run:
+```bash
+composer install
+php artisan key:generate
+php artisan migrate
+php artisan serve
+```
+
+## API Endpoints
+
+### 1. Create Checkout Session
+**POST** `/api/checkout`
+
+Creates a Stripe Checkout Session for course enrollment.
+
+**Request Body:**
+```json
+{
+  "course_id": 1
+}
+```
+
+**Response:**
+```json
+{
+  "url": "https://checkout.stripe.com/pay/cs_test_..."
+}
+```
+
+### 2. Check Payment Status
+**POST** `/api/check-payment/{stripeSessionId}`
+
+Checks if payment for a session is completed.
+
+**Response:**
+```json
+true
+```
+
+### 3. Get Payment Status (Detailed)
+**GET** `/api/payment-status?session_id={stripeSessionId}`
+
+Retrieves detailed payment information from Stripe.
+
+**Response:**
+```json
+{
+  "id": "cs_test_...",
+  "status": "paid",
+  "amount_total": 99.99,
+  "currency": "usd",
+  "payment_id": "pi_..."
+}
+```
+
+### 4. Stripe Webhook
+**POST** `/api/stripe/webhook`
+
+Handles Stripe webhook events (automatically called by Stripe).
+
+**Note**: Configure this endpoint in your Stripe Dashboard webhook settings.
+
+## Database Schema
+
+### Courses
+- `id` (primary key)
+- `title` (string)
+- `price` (float)
+- `timestamps`
+
+### Enrollments
+- `id` (primary key)
+- `user_id` (foreign key)
+- `course_id` (foreign key)
+- `stripe_session_id` (string, nullable)
+- `payment_status` (string, default: 'pending')
+- `timestamps`
+
+## Webhook Configuration
+
+To set up Stripe webhooks:
+
+1. Go to [Stripe Dashboard](https://dashboard.stripe.com/webhooks)
+2. Click "Add endpoint"
+3. Enter your webhook URL: `https://yourdomain.com/api/stripe/webhook`
+4. Select events to listen for: `checkout.session.completed`
+5. Copy the webhook signing secret (optional, for verification)
+
+## Project Structure
+
+```
+app/
+├── Http/
+│   └── Controllers/
+│       ├── StripeCheckoutController.php  # Handles checkout creation and status checks
+│       └── StripeWebhookController.php    # Processes Stripe webhook events
+├── Models/
+│   ├── Course.php                         # Course model
+│   └── Enrollment.php                     # Enrollment model with payment tracking
+└── helpers.php                            # Helper functions
+
+routes/
+├── api.php                                # API routes for Stripe integration
+└── web.php                                # Web routes
+
+database/
+└── migrations/
+    ├── create_courses_table.php
+    └── create_enrollments_table.php
+```
+
+## Key Features Explained
+
+### Race Condition Prevention
+The webhook handler uses Laravel's cache locking mechanism to prevent duplicate processing when multiple webhook events arrive simultaneously:
+
+```php
+$lock = Cache::lock('stripe-webhook-' . $session->id, 10);
+```
+
+### Payment Flow
+1. User initiates checkout → `POST /api/checkout`
+2. Stripe Checkout Session is created
+3. Enrollment record is created with `payment_status: 'pending'`
+4. User completes payment on Stripe
+5. Stripe sends webhook event → `POST /api/stripe/webhook`
+6. Payment status is updated to `'paid'` in enrollment record
+
+## Development
+
+### Running Tests
+```bash
+composer test
+# or
+php artisan test
+```
+
+### Code Formatting
+```bash
+./vendor/bin/pint
+```
+
+## Environment Variables
+
+Required environment variables in `.env`:
+
+```env
+APP_NAME="Stripe Payment"
+APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
+APP_URL=http://localhost
+
+STRIPE_KEY=pk_test_...
+STRIPE_SECRET=sk_test_...
+FRONTEND_URL=http://localhost:3000
+```
+
+## Security Considerations
+
+- Never commit `.env` file with real API keys
+- Use environment-specific keys (test vs live)
+- Implement webhook signature verification in production
+- Add proper authentication/authorization for API endpoints
+- Validate and sanitize all user inputs
 
 ## Contributing
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Support
+
+For issues and questions:
+- Check [Stripe Documentation](https://stripe.com/docs)
+- Review [Laravel Documentation](https://laravel.com/docs)
+- Open an issue in this repository
+
+## Acknowledgments
+
+- Built with [Laravel](https://laravel.com)
+- Payment processing by [Stripe](https://stripe.com)
